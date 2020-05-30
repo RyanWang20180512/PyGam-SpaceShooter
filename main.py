@@ -12,6 +12,11 @@ from pygame.locals import (
     QUIT,
     K_SPACE,
     K_p,
+    JOYAXISMOTION,
+    JOYBALLMOTION,
+    JOYBUTTONDOWN,
+    JOYBUTTONUP,
+    JOYHATMOTION,
 )
 
 
@@ -71,6 +76,7 @@ for i in range(9):
     play_explosion_anim['lg'].append(img)
     img_sm = pygame.transform.scale(img, (75, 75))
     play_explosion_anim['sm'].append(img_sm)
+
 
 
 WHITE = (255, 255, 255)
@@ -181,15 +187,24 @@ class Player(pygame.sprite.Sprite):
         self.powup=False
         self.last_powup_update = pygame.time.get_ticks()
 
+    def up(self):
+        self.rect.move_ip(0, -5)
+    def down(self):
+        self.rect.move_ip(0, 5)
+    def left(self):
+        self.rect.move_ip(-5, 0)
+    def right(self):
+        self.rect.move_ip(5, 0)
+
     def update(self, pressed_keys):
         if pressed_keys[K_UP]:
-            self.rect.move_ip(0, -5)
+            self.up()
         if pressed_keys[K_DOWN]:
-            self.rect.move_ip(0, 5)
+            self.down()
         if pressed_keys[K_LEFT]:
-            self.rect.move_ip(-5, 0)
+            self.left()
         if pressed_keys[K_RIGHT]:
-            self.rect.move_ip(5, 0)
+            self.right()
         if self.rect.left < 0:
             self.rect.left = 0
         if self.rect.right > SCREEN_WIDTH:
@@ -214,14 +229,17 @@ class Player(pygame.sprite.Sprite):
             laserBullet = PlayerBullet(self.rect.centerx, self.rect.top)
             all_sprites.add(laserBullet)
             player_bullets.add(laserBullet)
+            shoot_sound.play()
         else:
             superLaserBullet = SuperPlayerBullet(self.rect.centerx, self.rect.top)
             all_sprites.add(superLaserBullet)
             player_bullets.add(superLaserBullet)
+            shoot_sound.play()
         
     def beHit(self, damage):
         global End
         self.hp-=damage
+        hurt_sound.play()
         if self.hp<=0:
             End=True
             expl = PlayExplosion(self.rect.center,'lg')
@@ -296,6 +314,7 @@ class PlayExplosion(pygame.sprite.Sprite,):
         self.frame = 0
         self.last_update = pygame.time.get_ticks()
         self.frame_rate = 40
+        explosion_sound2.play()
 
     def update(self):
         now = pygame.time.get_ticks()
@@ -320,6 +339,7 @@ class EnemyExplosion(pygame.sprite.Sprite,):
         self.frame = 0
         self.last_update = pygame.time.get_ticks()
         self.frame_rate = 40
+        explosion_sound1.play()
 
     def update(self):
         now = pygame.time.get_ticks()
@@ -394,6 +414,7 @@ def draw_hp_bar(surf, x, y, hp):
     pygame.draw.rect(surf, GREEN, fill_rect)
     pygame.draw.rect(surf, WHITE, outline_rect, 2)
 
+pygame.mixer.init()
 pygame.init()
 
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -437,6 +458,22 @@ clock = pygame.time.Clock()
 pygame.joystick.init()
 joystick_count = pygame.joystick.get_count()
 print("joystick_count : "+str(joystick_count))
+if joystick_count>0:
+    joystick=pygame.joystick.Joystick(0)
+    joystick.init()
+
+    name=joystick.get_name()
+    print("name : "+name)
+
+
+pygame.mixer.music.load("./sounds/Dust.mp3")
+pygame.mixer.music.play(loops=-1)
+pygame.mixer.music.set_volume(0.2)
+
+shoot_sound=pygame.mixer.Sound("./sounds/fire.wav")
+explosion_sound1=pygame.mixer.Sound("./sounds/Explosion1.wav")
+explosion_sound2=pygame.mixer.Sound("./sounds/Explosion2.wav")
+hurt_sound=pygame.mixer.Sound("./sounds/Hurt.wav")
 
 while running:
 
@@ -469,54 +506,74 @@ while running:
                 treats.add(treat)
                 all_sprites.add(treats)
 
+    #axes[0]: x-axis, axes[1]: y-axis 
+    if joystick_count>0:
+        axes=joystick.get_numaxes()
+        xAxis=joystick.get_axis(0)
+        yAxis=joystick.get_axis(1)
+        if xAxis>0.5:
+            player.right()
+        if xAxis<-0.5:
+            player.left()
+        if yAxis<-0.5:
+            player.up()
+        if yAxis>0.5:
+            player.down()
+
+        buttons=joystick.get_numbuttons()
+        if joystick.get_button(0) ==1:
+            player.shoot()
+
+    pressed_keys = pygame.key.get_pressed()
+    player.update(pressed_keys)
+
+
     while pause :
         for event in pygame.event.get():
             if event.type==KEYDOWN:
                 if event.key==K_p:
                     pause = False
-    
-    pressed_keys = pygame.key.get_pressed()
-    player.update(pressed_keys)
 
-    hits_mob_bullets = pygame.sprite.groupcollide(mobs, player_bullets, False, False)
-    for mob,bullets in hits_mob_bullets.items():
-        for bullet in bullets:
-            mob.beHit(bullet.damage)
-            bullet.kill()
-        score+=5
-    hits_mob_player = pygame.sprite.spritecollide(player, mobs, False)
-    if hits_mob_player:
-        player.beHit(hits_mob_player[0].damage)
-        hits_mob_player[0].kill()
-        m = Mob()
-        all_sprites.add(m)
-        mobs.add(m)
-        
+    if End is False:
+        hits_mob_bullets = pygame.sprite.groupcollide(mobs, player_bullets, False, False)
+        for mob,bullets in hits_mob_bullets.items():
+            for bullet in bullets:
+                mob.beHit(bullet.damage)
+                bullet.kill()
+            score+=5
+        hits_mob_player = pygame.sprite.spritecollide(player, mobs, False)
+        if hits_mob_player:
+            player.beHit(hits_mob_player[0].damage)
+            hits_mob_player[0].kill()
+            m = Mob()
+            all_sprites.add(m)
+            mobs.add(m)
+            
 
-    hits_enemy_player = pygame.sprite.spritecollide(player, enemy_bullets, False)
-    if hits_enemy_player:
-        hits_enemy_player[0].destory()
-        player.beHit(hits_enemy_player[0].damage)
-    hits_enemy_player = pygame.sprite.spritecollide(player, enemies, False)
-    if hits_enemy_player:
-        player.beHit(hits_enemy_player[0].hp*5)
-        hits_enemy_player[0].kill()
-        
-    hits_enemy_bullets = pygame.sprite.groupcollide(enemies, player_bullets, True, True)
-    for enemy,bullets in hits_enemy_bullets.items():
-        for bullet in bullets:
-            enemy.beHit(bullet.damage)
-            score+=10
+        hits_enemy_player = pygame.sprite.spritecollide(player, enemy_bullets, False)
+        if hits_enemy_player:
+            hits_enemy_player[0].destory()
+            player.beHit(hits_enemy_player[0].damage)
+        hits_enemy_player = pygame.sprite.spritecollide(player, enemies, False)
+        if hits_enemy_player:
+            player.beHit(hits_enemy_player[0].hp*5)
+            hits_enemy_player[0].kill()
+            
+        hits_enemy_bullets = pygame.sprite.groupcollide(enemies, player_bullets, True, True)
+        for enemy,bullets in hits_enemy_bullets.items():
+            for bullet in bullets:
+                enemy.beHit(bullet.damage)
+                score+=10
 
-    hits_play_powups=pygame.sprite.spritecollide(player,powups,False)
-    if hits_play_powups:
-        player.powUp()
-        hits_play_powups[0].kill()
+        hits_play_powups=pygame.sprite.spritecollide(player,powups,False)
+        if hits_play_powups:
+            player.powUp()
+            hits_play_powups[0].kill()
 
-    hits_play_treats=pygame.sprite.spritecollide(player,treats,False)
-    if hits_play_treats:
-        player.beTreat(TREAT_HP)
-        hits_play_treats[0].kill()
+        hits_play_treats=pygame.sprite.spritecollide(player,treats,False)
+        if hits_play_treats:
+            player.beTreat(TREAT_HP)
+            hits_play_treats[0].kill()
         
 
     for sprite in all_sprites:
