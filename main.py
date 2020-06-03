@@ -30,8 +30,8 @@ MOB_MIN_SPEED=1
 MOB_MAX_SPEED=3
 ENEMY_SPEED=1
 ENEMY_MAX_NUM=3
-bgX1 = 0
-bgX2 = -SCREEN_HEIGHT
+bgY1 = 0
+bgY2 = -SCREEN_HEIGHT
 BACKGROUND_SCROLL_SPEED=0.5
 PLAY_HP=20
 POWUP_TIME=5000
@@ -582,15 +582,15 @@ while running:
 
 
     
-    screen.blit(background, (0, bgX1))  
-    screen.blit(background, (0, bgX2)) 
+    screen.blit(background, (0, bgY1))  
+    screen.blit(background, (0, bgY2)) 
     
-    bgX1 += BACKGROUND_SCROLL_SPEED
-    bgX2 += BACKGROUND_SCROLL_SPEED
-    if bgX1 > SCREEN_HEIGHT:
-        bgX1 = -SCREEN_HEIGHT
-    if bgX2 > SCREEN_HEIGHT:
-        bgX2 = -SCREEN_HEIGHT
+    bgY1 += BACKGROUND_SCROLL_SPEED
+    bgY2 += BACKGROUND_SCROLL_SPEED
+    if bgY1 > SCREEN_HEIGHT:
+        bgY1 = -SCREEN_HEIGHT
+    if bgY2 > SCREEN_HEIGHT:
+        bgY2 = -SCREEN_HEIGHT
 
     all_sprites.draw(screen)
     draw_text(screen, "Your Score : "+str(score), 28, SCREEN_WIDTH/2, 30, WHITE)
